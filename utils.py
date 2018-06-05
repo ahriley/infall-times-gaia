@@ -4,6 +4,7 @@ import glob
 
 Mpc2km = 3.086*10**19
 km2kpc = 10**3/Mpc2km
+kpc2km = 1/km2kpc
 
 ELVIS_DIR = '/Users/alexanderriley/Desktop/elvis/'
 
@@ -82,6 +83,16 @@ def get_halos_at_scale(sim, a):
     df.z *= a
     df.Rvir *= a
     return df
+
+def halo_concentrations(sim):
+    halos = sim.split('&')
+    map = {'Hera': 7.9, 'Zeus': 5.6, 'Scylla': 6.4, 'Charybdis': 7.6,
+            'Romulus': 9.6, 'Remus': 12.3, 'Orion': 5.3, 'Taurus': 10.9,
+            'Kek': 13.7, 'Kauket': 9.6, 'Hamilton': 9.9, 'Burr': 10.6,
+            'Lincoln': 8.4, 'Douglas': 9.6, 'Serena': 14.4, 'Venus': 1.8,
+            'Sonny': 2.4, 'Cher': 11.0, 'Hall': 10.3, 'Oates': 8.4,
+            'Thelma': 7.1, 'Louise': 17.0, 'Siegfried': 6.5, 'Roy': 11.1}
+    return [map[halo] for halo in halos]
 
 def list_of_sims(suite):
     if suite == 'elvis':

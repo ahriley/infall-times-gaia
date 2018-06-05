@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from utils import *
-import matplotlib.pyplot as plt
 
 naughty_frac = []
 earliest_acc = []
@@ -24,13 +23,13 @@ for sim in list_of_sims('elvis'):
     # check that each subhalo is currently within the halo's Rvir
     assert (subs.r < halos.loc[subs.hostID].Rvir.values).all()
 
-    # infall time: lookback time to r >= Rvir of host
     newvals = ['a_acc', 'M_acc', 'V_acc', 'a_peri', 'd_peri']
     subs = subs.reindex(columns=subs.columns.tolist() + newvals)
     subs['acc_found'] = False
     subs['peri_found'] = False
     subs['d_peri'] = np.inf
 
+    # accretion: lookback time to r >= host's Rvir
     scale_list = np.array(list_of_scales(sim))
     for a in scale_list[scale_list > 0]:
         # get z=a properties
@@ -58,7 +57,7 @@ for sim in list_of_sims('elvis'):
             subs.drop('acc_found', axis=1, inplace=True)
             break
 
-    # now work forwards from accretion to get to pericenter
+    # pericenter: step forward from accretion until a local minimum in r
     min_scale = np.min(subs.a_acc)
     for a in scale_list[scale_list > min_scale][::-1]:
         # get z=a properties
@@ -92,6 +91,7 @@ for sim in list_of_sims('elvis'):
     earliest_acc.append(np.min(subs.a_acc)))
     subs.to_pickle('derived_props/'+sim)
 
+# output diagnostics to file
 with open("infall_times_diagnostics.txt") as f:
     f.write('Naughty fractions (a_acc = a_peri AND d_peri > 200 AND a_peri != 1.0)\n')
     for sim in list_of_sims('elvis'):
