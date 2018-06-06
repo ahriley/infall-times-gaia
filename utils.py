@@ -47,7 +47,7 @@ def compute_spherical_hostcentric_sameunits(df):
     return df2
 
 def get_halos_at_scale_elvis(sim, a):
-    sim_dir = ELVIS_DIR+'mainbranches/'+sim+'/'
+    sim_dir = ELVIS_DIR+'tracks/'+sim+'/'
     index = np.argmin(np.abs(list_of_scales('elvis', sim) - a))
 
     # get halo properties at that redshift
@@ -89,7 +89,15 @@ def halo_concentrations(sim):
             'Kek': 13.7, 'Kauket': 9.6, 'Hamilton': 9.9, 'Burr': 10.6,
             'Lincoln': 8.4, 'Douglas': 9.6, 'Serena': 14.4, 'Venus': 1.8,
             'Sonny': 2.4, 'Cher': 11.0, 'Hall': 10.3, 'Oates': 8.4,
-            'Thelma': 7.1, 'Louise': 17.0, 'Siegfried': 6.5, 'Roy': 11.1}
+            'Thelma': 7.1, 'Louise': 17.0, 'Siegfried': 6.5, 'Roy': 11.1,
+            'iHera': 7.9, 'iZeus': 5.5, 'iScylla': 9.9, 'iCharybdis': 13.7,
+            'iRomulus': 11.3, 'iRemus': 8.0, 'iOrion': 4.9, 'iTaurus': 10.4,
+            'iKek': 5.5, 'iKauket': 11.1, 'iHamilton': 14.2, 'iBurr': 13.6,
+            'iLincoln': 13.8, 'iDouglas': 16.1, 'iSerena': 11.4,
+            'iVenus': 14.3, 'iSonny': 4.5, 'iCher': 6.4, 'iHall': 6.0,
+            'iOates': 8.4, 'iThelma': 9.6, 'iLouise': 8.4, 'iSiegfried': 11.1,
+            'iRoy': 3.9, 'iScylla_HiRes': 9.5, 'iKauket_HiRes': 11.8,
+            'iHall_HiRes': 5.8}
     return [map[halo] for halo in halos]
 
 def list_of_sims(suite):
@@ -102,7 +110,7 @@ def list_of_sims(suite):
 
 def list_of_scales(suite, sim=None):
     if suite == 'elvis':
-        sim_dir = ELVIS_DIR+'mainbranches/'+sim+'/'
+        sim_dir = ELVIS_DIR+'tracks/'+sim+'/'
         with open(sim_dir+'scale.txt') as f:
             scale_list = np.array(f.readlines()[1].split()).astype(float)
     elif suite == 'vl2':
