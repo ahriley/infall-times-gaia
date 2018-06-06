@@ -1,0 +1,5 @@
+Naughty fraction (a_acc = a_peri AND d_peri > 200 AND a_peri != 1.0)
+0.01887620719929763
+
+Earliest accretion (min(a_acc))
+0.2355798

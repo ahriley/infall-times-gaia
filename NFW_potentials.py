@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from utils import *
-import matplotlib.pyplot as plt
 
 G = 1.327*10**11    # km^3 / (solar mass * s^2)
 
