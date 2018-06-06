@@ -19,7 +19,10 @@ def potential2(r, rho0, rs, rmax):
     func = lambda r: G2*mltr(r, rho0, rs)/r**2
     return -quad(func, r, rmax)[0]
 
-for sim in ['iHall_HiRes', 'iScylla_HiRes', 'iKauket_HiRes']:
+for sim in list_of_sims('elvis'):
+    if sim[0] == 'i':
+        continue
+    print(sim)
     nhosts = 2 if '&' in sim else 1
     halos = load_elvis(sim).iloc[0:nhosts]
     subs = pd.read_pickle('derived_props/'+sim)
@@ -32,6 +35,8 @@ for sim in ['iHall_HiRes', 'iScylla_HiRes', 'iKauket_HiRes']:
 
     # calculate potential two ways, save result
     subs['pot_NFW'] = potential(subs, halos)
-    subs['pot_NFW_1Mpc'] = [potential2(rval,halos.rho0,halos.Rs, 10**3)*kpc2km**2 for rval in subs.r]
-    subs['pot_NFW_inf'] = [potential2(rval,halos.rho0,halos.Rs, np.inf)*kpc2km**2 for rval in subs.r]
+    R0 = 10**3*kpc2km
+    Rs = halos.loc[subs.hostID].Rs.values*kpc2km
+    rho0 = halos.loc[subs.hostID].rho0.values/(kpc2km**3)
+    subs['pot_NFW2'] = subs['pot_NFW'] + (4*np.pi*G*rho0*Rs**3*np.log(1+R0/Rs)/R0)
     subs.to_pickle('derived_props/'+sim)
