@@ -7,6 +7,7 @@ km2kpc = 10**3/Mpc2km
 kpc2km = 1/km2kpc
 
 ELVIS_DIR = '/Users/alexanderriley/Desktop/elvis/'
+VL2_DIR = '/Users/alexanderriley/Desktop/vl2/'
 
 def center_on_hosts(hosts, subs):
     centered = subs.copy()
@@ -45,12 +46,9 @@ def compute_spherical_hostcentric_sameunits(df):
 
     return df2
 
-def get_halos_at_scale(sim, a):
+def get_halos_at_scale_elvis(sim, a):
     sim_dir = ELVIS_DIR+'mainbranches/'+sim+'/'
-
-    with open(sim_dir+'scale.txt') as f:
-        scale_list = np.array(f.readlines()[1].split()).astype(float)
-    index = np.argmin(np.abs(scale_list - a))
+    index = np.argmin(np.abs(list_of_scales('elvis', sim) - a))
 
     # get halo properties at that redshift
     props = ['X', 'Y', 'Z', 'Vx', 'Vy', 'Vz', 'Vmax', 'Mvir', 'Rvir']
@@ -102,10 +100,15 @@ def list_of_sims(suite):
     else:
         raise ValueError("suite must be 'elvis'")
 
-def list_of_scales(sim):
-    sim_dir = ELVIS_DIR+'mainbranches/'+sim+'/'
-    with open(sim_dir+'scale.txt') as f:
-        scale_list = np.array(f.readlines()[1].split()).astype(float)
+def list_of_scales(suite, sim=None):
+    if suite == 'elvis':
+        sim_dir = ELVIS_DIR+'mainbranches/'+sim+'/'
+        with open(sim_dir+'scale.txt') as f:
+            scale_list = np.array(f.readlines()[1].split()).astype(float)
+    elif suite == 'vl2':
+        with open(VL2_DIR+'tracks/stepToTimeVL2.txt') as f:
+            lines = f.readlines()[3:]
+        scale_list = np.array([float(line.split()[1]) for line in lines])[::-1]
     return scale_list
 
 def load_elvis(sim):
@@ -149,10 +152,44 @@ def load_elvis(sim):
     df.index.name = 'ID'
     return df
 
-def load_satellites(file):
-    sats = pd.read_csv(file, index_col=0)
-    sats.x, sats.y, sats.z = sats.x*Mpc2km, sats.y*Mpc2km, sats.z*Mpc2km
-    sats = compute_spherical_hostcentric_sameunits(df=sats)
-    sats.x, sats.y, sats.z = sats.x*km2kpc, sats.y*km2kpc, sats.z*km2kpc
-    sats.r = sats.r*km2kpc
-    return sats
+def load_vl2(scale):
+    if scale == 1.0:
+        df = pd.read_table(VL2_DIR+'vltwosubs.txt',sep=' ',header=0,index_col='id')
+        df = df.drop(columns=['rVmax[kpc]', 'M<300pc[Msun]', 'M<600pc[Msun]'])
+        map = {'GCdistance[kpc]': 'r', 'peakVmax[km/s]': 'Vpeak', 'Vmax[km/s]': 'Vmax',
+                'Mtidal[Msun]': 'Mvir', 'rtidal[kpc]': 'Rvir',
+                'x_rel[kpc]': 'x', 'y_rel[kpc]': 'y', 'z_rel[kpc]': 'z',
+                'vx_rel[kpc]': 'vx', 'vy_rel[kpc]': 'vy', 'vz_rel[kpc]': 'vz'}
+        df.rename(columns=map, inplace=True)
+        df.sort_values('Mvir', ascending=False, inplace=True)
+        return df[(df.r < df.iloc[0].Rvir) & (df.Vmax > 5)]
+
+    sim_dir = VL2_DIR+'tracks/'
+    index = np.argmin(np.abs(list_of_scales('vl2') - scale))
+
+    # get halo properties at that redshift
+    props = ['X','Y','Z','VX','VY','VZ','Vmax','Mtidal','Rtidal','GCdistance']
+    df = {}
+    for prop in props:
+        prop_list = []
+        with open(sim_dir+'prog'+prop+'.txt') as f:
+            lines = f.readlines()
+            for line in lines:
+                split = np.array(line.split()).astype(float)
+                prop_list.append(split[index])
+        df[prop.lower()] = prop_list
+
+    # IDs will be for redshift 0
+    with open(VL2_DIR+'vltwosubs.txt') as f:
+        lines = f.readlines()[1:]
+        IDs = np.array([int(line.split()[0]) for line in lines])
+
+    df = pd.DataFrame(df, index=IDs)
+    map = {'gcdistance': 'r','vmax': 'Vmax','mtidal': 'Mvir','rtidal': 'Rvir'}
+    df.rename(columns=map, inplace=True)
+    df.index.name = 'ID'
+    df.x *= scale
+    df.y *= scale
+    df.z *= scale
+    df.Rvir *= scale
+    return df.loc[load_vl2(1.0).index]
