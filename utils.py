@@ -101,13 +101,12 @@ def halo_concentrations(sim):
             'iHall_HiRes': 5.8}
     return [map[halo] for halo in halos]
 
-def list_of_sims(suite):
-    if suite == 'elvis':
-        files = glob.glob(ELVIS_DIR+'*.txt')
-        files.remove(ELVIS_DIR+'README.txt')
-        return [f[len(ELVIS_DIR):-4] for f in files]
-    else:
-        raise ValueError("suite must be 'elvis'")
+def list_of_sims(sim):
+    if sim != 'elvis':
+        raise NotImplementedErorr("Simulation should be 'elvis' for now")
+    files = glob.glob(ELVIS_DIR+'*.txt')
+    files.remove(ELVIS_DIR+'README.txt')
+    return [f[len(ELVIS_DIR):-4] for f in files]
 
 def list_of_scales(suite, sim=None):
     if suite == 'elvis':
