@@ -5,7 +5,7 @@ from utils import *
 naughty_frac = []
 earliest_acc = []
 
-for sim in ['iHall_HiRes', 'iScylla_HiRes', 'iKauket_HiRes']:
+for sim in list_of_sims('elvis'):
     # present day properties
     subs_full = load_elvis(sim)
     nhosts = 2 if '&' in sim else 1
@@ -26,7 +26,7 @@ for sim in ['iHall_HiRes', 'iScylla_HiRes', 'iKauket_HiRes']:
     if totalsubs != len(subs):
         print(sim+" had "+str(totalsubs-len(subs))+" subs removed (r > Rvir)")
 
-    newvals = ['a_acc', 'M_acc', 'V_acc', 'a_peri', 'd_peri']
+    newvals = ['a_acc', 'M_acc', 'V_acc', 'a_peri', 'd_peri', 'vr_acc', 'vt_acc']
     subs = subs.reindex(columns=subs.columns.tolist() + newvals)
     subs['acc_found'] = False
     subs['peri_found'] = False
@@ -57,6 +57,8 @@ for sim in ['iHall_HiRes', 'iScylla_HiRes', 'iKauket_HiRes']:
         subs.loc[~subs.acc_found, 'a_acc'] = a
         subs.loc[~subs.acc_found, 'M_acc'] = subs_a.loc[~subs.acc_found]['Mvir']
         subs.loc[~subs.acc_found, 'V_acc'] = subs_a.loc[~subs.acc_found]['Vmax']
+        subs.loc[~subs.acc_found, 'vr_acc'] = subs_a.loc[~subs.acc_found]['v_r']
+        subs.loc[~subs.acc_found, 'vt_acc'] = subs_a.loc[~subs.acc_found]['v_t']
 
         if subs['acc_found'].all():
             subs.drop('acc_found', axis=1, inplace=True)
@@ -97,10 +99,10 @@ for sim in ['iHall_HiRes', 'iScylla_HiRes', 'iKauket_HiRes']:
     subs.to_pickle('derived_props/'+sim)
 
 # output diagnostics to file
-with open("infall_times_diagnostics_hires.txt", "w") as f:
+with open("infall_times_diagnostics_elvis.txt", "w") as f:
     f.write('Naughty fractions (a_acc = a_peri AND d_peri > 200 AND a_peri != 1.0)\n')
-    for sim in list_of_sims('elvis'):
+    for sim,q in zip(list_of_sims('elvis'), naughty_frac):
         f.write(sim + ": " + str(q) + '\n')
     f.write('\nEarliest accretion (min(a_acc))\n')
-    for sim in list_of_sims('elvis'):
-        f.write(sim + ": " + str(np.min(subs.a_acc)) + '\n')
+    for sim,a in zip(list_of_sims('elvis'), earliest_acc):
+        f.write(sim + ": " + str(a) + '\n')

@@ -15,14 +15,11 @@ def potential(subhalos, hosts):
 def mltr(r, rho0, rs):
     return 4*np.pi*rho0*rs**3*(np.log((rs+r)/rs) - r/(rs+r))
 
-def potential2(r, rho0, rs, rmax):
+def potential_rocha(r, rho0, rs, rmax):
     func = lambda r: G2*mltr(r, rho0, rs)/r**2
     return -quad(func, r, rmax)[0]
 
 for sim in list_of_sims('elvis'):
-    if sim[0] == 'i':
-        continue
-    print(sim)
     nhosts = 2 if '&' in sim else 1
     halos = load_elvis(sim).iloc[0:nhosts]
     subs = pd.read_pickle('derived_props/'+sim)

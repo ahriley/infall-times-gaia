@@ -76,10 +76,11 @@ def get_halos_at_scale_elvis(sim, a):
 
     df = pd.DataFrame(df, index=IDs)
     df.index.name = 'ID'
-    df.x *= a
-    df.y *= a
-    df.z *= a
-    df.Rvir *= a
+    # use comoving distances for computing pericenter, infall
+    # df.x *= a
+    # df.y *= a
+    # df.z *= a
+    # df.Rvir *= a
     return df
 
 def halo_concentrations(sim):
