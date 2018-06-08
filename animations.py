@@ -9,14 +9,16 @@ from astropy.cosmology import WMAP7
 simlist_full = list_of_sims('elvis')
 simlist = []
 for sim in simlist_full:
-    if sim[0] == 'i' and not 'HiRes' in sim:
+    if sim[0] == 'i' and 'HiRes' not in sim:
         simlist.append(sim)
 
 # order by virial mass
-Mvir = []
+sortprop = []
 for sim in simlist:
-    Mvir.append(np.sum(load_elvis(sim).iloc[0:1].M_dm))
-Mvir, simlist = zip(*sorted(zip(Mvir, simlist)))
+    # sortprop.append(np.sum(load_elvis(sim).iloc[0:1].M_dm))
+    sortprop.append(halo_concentrations(sim)[0])
+    # sortprop.append(np.sum(load_elvis(sim).iloc[0:1].apeak))
+sortprop, simlist = zip(*sorted(zip(sortprop, simlist)))
 
 # get maximum radius of subhalos
 r = np.array([])
@@ -27,7 +29,7 @@ max_r = np.max(r)
 
 # set up constant properties of figure
 fig = plt.figure()
-ax = plt.axes(xlim=(0.,WMAP7.lookback_time(np.inf).value), ylim=(3.4,5.2))
+ax = plt.axes(xlim=(0.,12.75), ylim=(3.4,5.2))
 plt.yticks([3.5,4.0,4.5,5.0])
 scat = plt.scatter([], [], s=2.0, c=[], cmap='plasma', vmin=0.0, vmax=max_r)
 plt.title("Isolated Halos")
@@ -35,7 +37,8 @@ plt.colorbar().set_label(r'Galactocentric Radius [$kpc$]')
 plt.xlabel(r'Infall time [$Gyr$]')
 plt.ylabel(r'log(Binding Energy) [$km^2\ s^{-2}$]')
 sim_text = ax.text(0.65, 0.1, '', transform=ax.transAxes)
-mvir_text = ax.text(0.65, 0.05, '', transform=ax.transAxes)
+sortprop_text = ax.text(0.65, 0.05, '', transform=ax.transAxes)
+plt.tight_layout()
 
 def update_plot(i):
     sim = simlist[i]
@@ -48,9 +51,9 @@ def update_plot(i):
     scat.set_offsets(offset)        # positions
     scat.set_array(r)               # colors
     sim_text.set_text(sim)
-    mvir_text.set_text('%.2E' % Mvir[i])
-    return scat,sim_text,mvir_text
+    sortprop_text.set_text("apeak = "'%.2f' % sortprop[i])
+    return scat,sim_text,sortprop_text
 
 anim = FuncAnimation(fig, update_plot, frames=len(simlist), blit=True, interval=600)
-anim.save('isolated.mp4')
+anim.save('animations/isolated_apeak.mp4')
 # plt.show()
