@@ -13,7 +13,7 @@ for sim in simlist_full:
     if sim[0] == 'i' and 'HiRes' not in sim:
         simlist.append(sim)
 
-slopes, Mvir, c, vmax, vpeak, apeak, error = [], [], [], [], [], [], []
+slopes, Mvir, c, apeak, error, mass_change, Mpeak = [], [], [], [], [], [], []
 for sim in simlist:
     subs = pd.read_pickle('derived_props/'+sim)
     bind = -subs.pot_NFW2.values - 0.5*(subs.v_r.values**2 + subs.v_t.values**2)
@@ -42,28 +42,37 @@ for sim in simlist:
     """
     # save the params
     halo = load_elvis(sim).iloc[0]
+    mass_change.append((halo.Mpeak - halo.M_dm)/halo.M_dm)
     slopes.append(slope)
     Mvir.append(halo.M_dm)
     c.append(halo_concentrations(sim)[0])
-    vmax.append(halo.Vmax)
-    vpeak.append(halo.Vpeak)
     apeak.append(halo.apeak)
+    Mpeak.append(halo.Mpeak)
     error.append(MSE(np.log10(bind[bindcut]),pred))
 slopes = np.array(slopes)
 Mvir = np.array(Mvir)
 c = np.array(c)
 error = np.array(error)
+mass_change = np.array(mass_change)
+apeak = np.array(apeak)
 
-plt.scatter(np.log10(Mvir), error, c=c, cmap='plasma')
-plt.colorbar().set_label(r'Concentration')
-plt.xlabel('Mvir')
+plt.scatter(c, slopes, c=np.log10(Mvir), cmap='plasma')
+plt.colorbar().set_label(r'log(Mvir) [$M_\odot$]')
+plt.xlabel('c')
 plt.ylabel('Slope');
-# plt.savefig('figures/slope_c.png', bbox_inches='tight')
+plt.savefig('figures/slope_c_mvir.png', bbox_inches='tight')
 plt.close()
 
-plt.scatter(np.log10(Mvir), slopes, c=c, cmap='plasma')
-plt.colorbar().set_label(r'Concentration')
-plt.xlabel(r'log(Mvir) [$M_\odot$]')
-plt.ylabel('Slope')
-# plt.savefig('figures/slope_mvir.png', bbox_inches='tight')
+plt.scatter(c, slopes, c=1/apeak-1, cmap='plasma_r')
+plt.colorbar().set_label(r'z_peak')
+plt.xlabel('c')
+plt.ylabel('Slope');
+plt.savefig('figures/slope_c_zpeak.png', bbox_inches='tight')
+plt.close()
+
+plt.scatter(1/apeak[mass_change>0]-1, mass_change[mass_change>0], c=Mvir[mass_change>0], cmap='plasma')
+plt.xlabel('z_peak')
+plt.ylabel('(Mpeak-Mvir(z=0)) / Mpeak');
+plt.colorbar().set_label(r'Mvir')
+plt.savefig('figures/massloss_zpeak.png', bbox_inches='tight')
 plt.close()
