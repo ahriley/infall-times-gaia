@@ -51,19 +51,16 @@ def get_halos_at_scale_elvis(sim, a):
     index = np.argmin(np.abs(list_of_scales('elvis', sim) - a))
 
     # get halo properties at that redshift
-    props = ['X', 'Y', 'Z', 'Vx', 'Vy', 'Vz', 'Vmax', 'Mvir', 'Rvir']
+    props = ['X', 'Y', 'Z', 'Vx', 'Vy', 'Vz', 'Vmax', 'Mvir', 'Rvir', 'Rs', 'pID', 'ID']
+    keys = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'Vmax', 'Mvir', 'Rvir', 'Rs', 'pID', 'zID']
     df = {}
-    for prop in props:
+    for key,prop in zip(keys,props):
         prop_list = []
         with open(sim_dir+prop+'.txt') as f:
             lines = f.readlines()[1:]
             for line in lines:
                 split = np.array(line.split()).astype(float)
                 prop_list.append(split[index])
-        if prop == 'Vmax' or prop == 'Mvir' or prop == 'Rvir':
-            key = prop
-        else:
-            key = prop.lower()
         df[key] = prop_list
 
     # IDs will be for redshift 0
@@ -201,3 +198,9 @@ def load_vl2(scale):
     df.z *= scale
     df.Rvir *= scale
     return df.loc[load_vl2(1.0).index]
+
+def potentialNFW(subhalos, hosts):
+    r = subhalos.r*kpc2km
+    Rs = hosts.loc[subs['hostID']].Rs.values*kpc2km
+    rho0 = hosts.loc[subs['hostID']].rho0.values/(kpc2km**3)
+    return -4*np.pi*G*rho0*Rs**3*np.log(1+r/Rs)/r

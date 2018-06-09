@@ -6,12 +6,6 @@ from scipy.integrate import quad
 G = 1.327*10**11    # km^3 / (solar mass * s^2)
 G2 = G*km2kpc**3
 
-def potential(subhalos, hosts):
-    r = subhalos.r*kpc2km
-    Rs = hosts.loc[subs['hostID']].Rs.values*kpc2km
-    rho0 = hosts.loc[subs['hostID']].rho0.values/(kpc2km**3)
-    return -4*np.pi*G*rho0*Rs**3*np.log(1+r/Rs)/r
-
 def mltr(r, rho0, rs):
     return 4*np.pi*rho0*rs**3*(np.log((rs+r)/rs) - r/(rs+r))
 
@@ -31,7 +25,7 @@ for sim in list_of_sims('elvis'):
     halos['rho0'] /= np.log(1+halos.c) - (halos.c/(1+halos.c))
 
     # calculate potential two ways, save result
-    subs['pot_NFW'] = potential(subs, halos)
+    subs['pot_NFW'] = potentialNFW(subs, halos)
     R0 = 10**3*kpc2km
     Rs = halos.loc[subs.hostID].Rs.values*kpc2km
     rho0 = halos.loc[subs.hostID].rho0.values/(kpc2km**3)
