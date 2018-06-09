@@ -3,7 +3,6 @@ import pandas as pd
 from utils import *
 from scipy.integrate import quad
 
-G = 1.327*10**11    # km^3 / (solar mass * s^2)
 G2 = G*km2kpc**3
 
 def mltr(r, rho0, rs):
@@ -26,8 +25,5 @@ for sim in list_of_sims('elvis'):
 
     # calculate potential two ways, save result
     subs['pot_NFW'] = potentialNFW(subs, halos)
-    R0 = 10**3*kpc2km
-    Rs = halos.loc[subs.hostID].Rs.values*kpc2km
-    rho0 = halos.loc[subs.hostID].rho0.values/(kpc2km**3)
-    subs['pot_NFW2'] = subs['pot_NFW'] + (4*np.pi*G*rho0*Rs**3*np.log(1+R0/Rs)/R0)
+    subs['pot_NFW2'] = potentialNFW_Rocha_approx(subs, halos)
     subs.to_pickle('derived_props/'+sim)

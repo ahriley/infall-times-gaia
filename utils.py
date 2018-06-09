@@ -6,6 +6,8 @@ Mpc2km = 3.086*10**19
 km2kpc = 10**3/Mpc2km
 kpc2km = 1/km2kpc
 
+G = 1.327*10**11    # km^3 / (solar mass * s^2)
+
 ELVIS_DIR = '/Users/alexanderriley/Desktop/elvis/'
 VL2_DIR = '/Users/alexanderriley/Desktop/vl2/'
 
@@ -201,6 +203,13 @@ def load_vl2(scale):
 
 def potentialNFW(subhalos, hosts):
     r = subhalos.r*kpc2km
-    Rs = hosts.loc[subs['hostID']].Rs.values*kpc2km
-    rho0 = hosts.loc[subs['hostID']].rho0.values/(kpc2km**3)
+    Rs = hosts.loc[subhalos['hostID']].Rs.values*kpc2km
+    rho0 = hosts.loc[subhalos['hostID']].rho0.values/(kpc2km**3)
     return -4*np.pi*G*rho0*Rs**3*np.log(1+r/Rs)/r
+
+def potentialNFW_Rocha_approx(subhalos, hosts):
+    R0 = 10**3*kpc2km
+    Rs = hosts.loc[subhalos.hostID].Rs.values*kpc2km
+    rho0 = hosts.loc[subhalos.hostID].rho0.values/(kpc2km**3)
+    potNFW = potentialNFW(subhalos, hosts)
+    return potNFW + (4*np.pi*G*rho0*Rs**3*np.log(1+R0/Rs)/R0)
