@@ -16,8 +16,8 @@ for sim in simlist_full:
 slopes, Mvir, c, apeak, error, mass_change, Mpeak = [], [], [], [], [], [], []
 for sim in simlist:
     subs = pd.read_pickle('derived_props/'+sim)
-    bind = -subs.pot_NFW2.values - 0.5*(subs.v_r.values**2 + subs.v_t.values**2)
-    infall = WMAP7.lookback_time(1/subs.a_acc.values - 1).value
+    bind = -subs.pot_NFW2 - 0.5*(subs.v_r**2 + subs.v_t**2)
+    infall = WMAP7.lookback_time(1/subs.a_acc - 1).value
     infallcut = infall > 2
     bindcut = bind > 0
     bind_ = bind[infallcut & bindcut]
@@ -64,6 +64,7 @@ plt.savefig('figures/slope_c_mvir.png', bbox_inches='tight')
 plt.close()
 
 plt.scatter(c, slopes, c=1/apeak-1, cmap='plasma_r')
+plt.plot(12.2, 0.10688449504116676, 'ks')
 plt.colorbar().set_label(r'z_peak')
 plt.xlabel('c')
 plt.ylabel('Slope');

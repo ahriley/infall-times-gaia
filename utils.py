@@ -8,8 +8,8 @@ kpc2km = 1/km2kpc
 
 G = 1.327*10**11    # km^3 / (solar mass * s^2)
 
-ELVIS_DIR = '/Users/alexanderriley/Desktop/elvis/'
-VL2_DIR = '/Users/alexanderriley/Desktop/vl2/'
+ELVIS_DIR = '/Users/alexanderriley/Desktop/sims/elvis/'
+VL2_DIR = '/Users/alexanderriley/Desktop/sims/vl2/'
 
 def center_on_hosts(hosts, subs):
     centered = subs.copy()
@@ -97,7 +97,7 @@ def halo_concentrations(sim):
             'iVenus': 14.3, 'iSonny': 4.5, 'iCher': 6.4, 'iHall': 6.0,
             'iOates': 8.4, 'iThelma': 9.6, 'iLouise': 8.4, 'iSiegfried': 11.1,
             'iRoy': 3.9, 'iScylla_HiRes': 9.5, 'iKauket_HiRes': 11.8,
-            'iHall_HiRes': 5.8}
+            'iHall_HiRes': 5.8, 'vl2': 12.2}
     return [map[halo] for halo in halos]
 
 def list_of_sims(sim):
