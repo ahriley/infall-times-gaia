@@ -8,8 +8,9 @@ kpc2km = 1/km2kpc
 
 G = 1.327*10**11    # km^3 / (solar mass * s^2)
 
-ELVIS_DIR = '/Users/alexanderriley/Desktop/sims/elvis/'
-VL2_DIR = '/Users/alexanderriley/Desktop/sims/vl2/'
+SIM_DIR = '/Volumes/TINY/NOTFERMI/sims/'
+ELVIS_DIR = SIM_DIR+'elvis/'
+VL2_DIR = SIM_DIR+'vl2/'
 
 def center_on_hosts(hosts, subs):
     centered = subs.copy()
