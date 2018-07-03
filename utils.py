@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 import glob
 
-Mpc2km = 3.086*10**19
-km2kpc = 10**3/Mpc2km
-kpc2km = 1/km2kpc
+Mpc2kpc = 10**3
 
 G = 1.327*10**11    # km^3 / (solar mass * s^2)
 
@@ -119,45 +117,30 @@ def list_of_scales(suite, sim=None):
         scale_list = np.array([float(line.split()[1]) for line in lines])[::-1]
     return scale_list
 
-def load_elvis(sim):
+def load_elvis(sim, processed=False):
     filename = ELVIS_DIR+sim+'.txt'
-
-    # read in the data
-    with open(filename) as f:
-        id, x, y, z, vx, vy, vz, vmax, vpeak, mvir = [[] for i in range(10)]
-        mpeak, rvir, rmax, apeak, mstar, mstar_b = [[] for i in range(6)]
-        npart, pid, upid = [], [], []
-        for line in f:
-            if line[0] == '#':
-                continue
-            items = line.split()
-            id.append(int(items[0]))
-            x.append(float(items[1]))
-            y.append(float(items[2]))
-            z.append(float(items[3]))
-            vx.append(float(items[4]))
-            vy.append(float(items[5]))
-            vz.append(float(items[6]))
-            vmax.append(float(items[7]))
-            vpeak.append(float(items[8]))
-            mvir.append(float(items[9]))
-            mpeak.append(float(items[10]))
-            rvir.append(float(items[11]))
-            rmax.append(float(items[12]))
-            apeak.append(float(items[13]))
-            mstar.append(float(items[14]))
-            mstar_b.append(float(items[15]))
-            npart.append(int(items[16]))
-            pid.append(int(items[17]))
-            upid.append(int(items[18]))
-
-    # convert to pandas format
-    df = {'PID': pid, 'hostID': upid, 'npart': npart, 'apeak': apeak,
-            'M_dm': mvir, 'M_star': mstar, 'Mpeak': mpeak, 'Mstar_b': mstar_b,
-            'Vmax': vmax, 'Vpeak': vpeak, 'Rvir': rvir, 'Rmax': rmax,
-            'x': x, 'y': y, 'z': z, 'vx': vx, 'vy': vy, 'vz': vz}
-    df = pd.DataFrame(df, index=id)
+    df = pd.read_table(filename, sep='\s+', header=1, index_col=0)
     df.index.name = 'ID'
+    df.drop(index='#', inplace=True)
+    df.drop(columns='UpID', inplace=True)
+
+    # rename columns
+    cols = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'Vmax', 'Vpeak', 'Mvir', 'Mpeak',
+            'Rvir', 'Rmax', 'apeak', 'Mstar', 'Mstar_b', 'npart', 'hostID', 'upID']
+    mapper = dict(zip(df.columns.values, cols))
+    df.rename(mapper=mapper, axis='columns', inplace=True)
+    df.index = df.index.astype(int)
+    df = df.astype({'hostID': int, 'upID': int, 'npart': int})
+
+    if processed:
+        nhosts = 2 if '&' in sim else 1
+        haloIDs = list(df.index.values[0:nhosts])
+        subs, halos = df.drop(haloIDs), df.loc[haloIDs]
+        subs = subs[np.isin(subs.hostID, halos.index)]
+        subs = center_on_hosts(hosts=halos, subs=subs)
+        subs.x, subs.y, subs.z = subs.x*Mpc2kpc, subs.y*Mpc2kpc, subs.z*Mpc2kpc
+        subs = compute_spherical_hostcentric_sameunits(df=subs)
+        return halos, subs
     return df
 
 def load_vl2(scale):
