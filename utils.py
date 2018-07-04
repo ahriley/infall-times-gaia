@@ -140,6 +140,8 @@ def load_elvis(sim, processed=False):
         subs = center_on_hosts(hosts=halos, subs=subs)
         subs.x, subs.y, subs.z = subs.x*Mpc2kpc, subs.y*Mpc2kpc, subs.z*Mpc2kpc
         subs = compute_spherical_hostcentric_sameunits(df=subs)
+        subs = pd.concat((subs, pd.read_pickle('derived_props/'+sim)),
+                            sort=False, axis=1)
         return halos, subs
     return df
 
