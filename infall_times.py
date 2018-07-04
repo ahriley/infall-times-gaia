@@ -1,108 +1,123 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 from utils import *
+from scipy.interpolate import interp1d
+from scipy.optimize import brentq, minimize_scalar
+from scipy.signal import argrelmin
 
 naughty_frac = []
 earliest_acc = []
 
 for sim in list_of_sims('elvis'):
-    # present day properties
-    subs_full = load_elvis(sim)
-    nhosts = 2 if '&' in sim else 1
-    haloIDs = list(subs_full.index.values[0:nhosts])
-    subs, halos = subs_full.drop(haloIDs), subs_full.loc[haloIDs]
-    subs_full.drop(haloIDs, inplace=True)
-    subs = subs[np.isin(subs.hostID, halos.index)]
-    subs = subs[subs.Vmax > 5]
-    subs = center_on_hosts(hosts=halos, subs=subs)
-    subs.x, subs.y, subs.z = subs.x*Mpc2km, subs.y*Mpc2km, subs.z*Mpc2km
-    subs = compute_spherical_hostcentric_sameunits(df=subs)
-    subs.x, subs.y, subs.z = subs.x*km2kpc, subs.y*km2kpc, subs.z*km2kpc
-    subs.r = subs.r*km2kpc
+    print(sim)
+    halos, subs = load_elvis(sim, processed=True)
+    assert (subs.r < halos.loc[subs.hostID].Rvir.values).all()
 
-    # check that each subhalo is currently within the halo's Rvir
-    totalsubs = len(subs)
-    subs = subs[subs.r < halos.loc[subs.hostID].Rvir.values]
-    if totalsubs != len(subs):
-        print(sim+" had "+str(totalsubs-len(subs))+" subs removed (r > Rvir)")
+    # read in the evolutionary tracks
+    x = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/X.txt')
+    y = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/Y.txt')
+    z = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/Z.txt')
+    pos = np.stack((x,y,z), axis=2) * 1000
+    IDs = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/ID.txt').astype(int)[:,0]
+    a = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/scale.txt')
+    rvir = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/Rvir.txt')
+    Mvir = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/Mvir.txt')
+    Vmax = np.loadtxt(ELVIS_DIR+'/tracks/'+sim+'/Vmax.txt')
 
-    newvals = ['a_acc', 'M_acc', 'V_acc', 'a_peri', 'd_peri', 'vr_acc', 'vt_acc']
-    subs = subs.reindex(columns=subs.columns.tolist() + newvals)
-    subs['acc_found'] = False
-    subs['peri_found'] = False
-    subs['d_peri'] = np.inf
+    # get properties for main halo(s)
+    nHalos = len(halos)
+    halos_pos = pos[0:nHalos]
 
-    print(sim+" "+str(len(subs)))
+    # select out subhalos of interest
+    indices = []
+    for ID in subs.index:
+        ii = np.where(IDs == ID)[0][0]
+        indices.append(ii)
+    pos = pos[indices]; IDs = IDs[indices]
 
-    # accretion: lookback time to r >= host's Rvir
-    scale_list = np.array(list_of_scales('elvis', sim))
-    for a in scale_list[scale_list > 0]:
-        # get z=a properties
-        subs_a = get_halos_at_scale_elvis(sim, a)
-        subs_a, halos_a = subs_a.drop(haloIDs), subs_a.loc[haloIDs]
+    # map ID of main halos to index for halo_pos array
+    mapper = {}
+    for ID in halos.index:
+        mapper[ID] = halos.index.get_loc(ID)
 
-        # restrict to subhalos of main halos at z=0
-        subs_a['hostID'] = subs_full['hostID']
-        subs_a = subs_a.loc[subs.index]
+    # center the subhalos, compute r(a)
+    for ii in range(len(IDs)):
+        halo_ii = mapper[int(subs.iloc[ii].hostID)]
+        halo_pos_ii = halos_pos[halo_ii]
+        pos[ii] -= halo_pos_ii
+    r = np.sqrt(pos[:,:,0]**2 + pos[:,:,1]**2 + pos[:,:,2]**2)
 
-        # center, convert to spherical
-        subs_a = center_on_hosts(hosts=halos_a, subs=subs_a)
-        subs_a.x, subs_a.y, subs_a.z = subs_a.x*Mpc2km, subs_a.y*Mpc2km, subs_a.z*Mpc2km
-        subs_a = compute_spherical_hostcentric_sameunits(df=subs_a)
-        subs_a.x, subs_a.y, subs_a.z = subs_a.x*km2kpc, subs_a.y*km2kpc, subs_a.z*km2kpc
-        subs_a.r = subs_a.r*km2kpc
+    # interpolate Rvir(a) for the main halos, map to halo IDs
+    mapper = {}
+    AMIN = -np.infty
+    for ID in halos.index:
+        halo_index = halos.index.get_loc(ID)
+        a_halo = a[halo_index]
+        rvir_halo = rvir[halo_index][a_halo > 0]
+        a_halo = a_halo[a_halo > 0]
+        AMIN = np.max([np.min(a_halo), AMIN])
+        mapper[ID] = interp1d(a_halo, rvir_halo, kind='cubic')
 
-        # if accretion condition satisfied, stop updating accretion values
-        subs['acc_found'] = (subs['acc_found']) | (subs_a.r > halos_a.loc[subs_a['hostID']].Rvir.values)
-        subs.loc[~subs.acc_found, 'a_acc'] = a
-        subs.loc[~subs.acc_found, 'M_acc'] = subs_a.loc[~subs.acc_found]['Mvir']
-        subs.loc[~subs.acc_found, 'V_acc'] = subs_a.loc[~subs.acc_found]['Vmax']
-        subs.loc[~subs.acc_found, 'vr_acc'] = subs_a.loc[~subs.acc_found]['v_r']
-        subs.loc[~subs.acc_found, 'vt_acc'] = subs_a.loc[~subs.acc_found]['v_t']
+    # find a_acc, a_peri for subhalos of interest
+    a = a[indices]; rvir = rvir[indices]
+    Mvir = Mvir[indices]; Vmax = Vmax[indices]
+    accs, peris, dperis, Maccs, Vaccs = [], [], [], [], []
+    bad = 0
+    for ii in range(len(indices)):
+        # a_acc: most recent crossing of Rvir
+        inc = a[ii] > AMIN
+        r_a = interp1d(a[ii][inc], r[ii][inc], kind='cubic')
+        host_rvir = mapper[int(subs.iloc[ii].hostID)]
+        low = a[ii][inc][np.argmax(r[ii][inc] - host_rvir(a[ii][inc]) > 0)]
+        high = 1.0
+        if low == high:
+            bad += 1
+            a_acc = np.min(a[ii][inc])
+        else:
+            a_acc = brentq(lambda a : r_a(a) - host_rvir(a), low, high)
 
-        if subs['acc_found'].all():
-            subs.drop('acc_found', axis=1, inplace=True)
-            break
+        # a_peri: first local minimum after accretion
+        try:
+            # try to find first well-defined local minimum after accretion
+            argrelmins = argrelmin(r[ii][inc], order=5)[0]
+            relmins = a[ii][inc][argrelmins]
+            argrelmins = argrelmins[relmins > a_acc]
+            relmins = relmins[relmins > a_acc]
+            idx = np.where(a[ii][inc] == relmins[-1])[0][0]
+            h = a[ii][inc][idx-2:][0]
+            assert h > a_acc
+        except (IndexError, AssertionError):
+            # if that doesn't work, just use the high=1.0
+            # NOTE: in known cases, this means a_peri is close to a_acc or 1.0
+            h = 1.0
+        a_peri = minimize_scalar(r_a, bounds=(a_acc, h), method='bounded')['x']
 
-    # pericenter: step forward from accretion until a local minimum in r
-    min_scale = np.min(subs.a_acc)
-    for a in scale_list[scale_list > min_scale][::-1]:
-        # get z=a properties
-        subs_a = get_halos_at_scale_elvis(sim, a)
-        subs_a, halos_a = subs_a.drop(haloIDs), subs_a.loc[haloIDs]
+        # get other desired properties
+        Mvir_a = interp1d(a[ii][inc], Mvir[ii][inc], kind='cubic')
+        Vmax_a = interp1d(a[ii][inc], Vmax[ii][inc], kind='cubic')
+        accs.append(a_acc)
+        peris.append(a_peri)
+        dperis.append(float(r_a(a_peri)))
+        Maccs.append(float(Mvir_a(a_acc)))
+        Vaccs.append(float(Vmax_a(a_acc)))
 
-        # restrict to subhalos of main halos at z=0
-        subs_a['hostID'] = subs_full['hostID']
-        subs_a = subs_a.loc[subs.index]
+    # print(sim+": "+str(bad)+" ("'{:.2f}'.format(bad/ii * 100)+"%)")
+    # diagnostics
+    naughty_frac.append(bad/ii * 100)
+    earliest_acc.append(np.min(accs))
 
-        # center, convert to spherical
-        subs_a = center_on_hosts(hosts=halos_a, subs=subs_a)
-        subs_a.x, subs_a.y, subs_a.z = subs_a.x*Mpc2km, subs_a.y*Mpc2km, subs_a.z*Mpc2km
-        subs_a = compute_spherical_hostcentric_sameunits(df=subs_a)
-        subs_a.x, subs_a.y, subs_a.z = subs_a.x*km2kpc, subs_a.y*km2kpc, subs_a.z*km2kpc
-        subs_a.r = subs_a.r*km2kpc
-
-        # find local minimum after accretion
-        subs['acc'] = a >= subs['a_acc']
-        subs['peri_found'] = (subs['peri_found']) | ((subs_a.r > subs.d_peri) & (subs['acc']))
-        subs.loc[~subs.peri_found&subs.acc, 'a_peri'] = a
-        subs.loc[~subs.peri_found&subs.acc, 'd_peri'] = subs_a.loc[~subs.peri_found&subs.acc]['r']
-
-        if subs['peri_found'].all() or a==1.0:
-            subs.drop(labels=['acc', 'peri_found'], axis=1, inplace=True)
-            break
-
-    # save diagnostics
-    q = len(subs[(subs.a_acc == subs.a_peri) & (subs.d_peri > 200) & (subs.a_peri != 1.0)])/len(subs)
-    naughty_frac.append(q)
-    earliest_acc.append(np.min(subs.a_acc))
-    subs.to_pickle('derived_props/'+sim)
+    # save the acc/peri values
+    df = {'a_peri': peris, 'd_peri': dperis,
+            'a_acc': accs, 'M_acc': Maccs, 'V_acc': Vaccs}
+    newdata = pd.DataFrame(df, index=subs.index.values)
+    newdata.to_pickle('derived_props/'+sim)
 
 # output diagnostics to file
 with open("infall_times_diagnostics_elvis.txt", "w") as f:
-    f.write('Naughty fractions (a_acc = a_peri AND d_peri > 200 AND a_peri != 1.0)\n')
+    f.write("Subhalos that never cross out of Rvir\n")
     for sim,q in zip(list_of_sims('elvis'), naughty_frac):
-        f.write(sim + ": " + str(q) + '\n')
+        f.write(sim + ": " + str(q) + '%\n')
     f.write('\nEarliest accretion (min(a_acc))\n')
     for sim,a in zip(list_of_sims('elvis'), earliest_acc):
         f.write(sim + ": " + str(a) + '\n')
