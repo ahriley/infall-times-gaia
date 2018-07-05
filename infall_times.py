@@ -114,7 +114,7 @@ for sim in list_of_sims('elvis'):
     newdata.to_pickle('derived_props/'+sim)
 
 # output diagnostics to file
-with open("infall_times_diagnostics_elvis.txt", "w") as f:
+with open("diagnostics/infall_times_diagnostics_elvis.txt", "w") as f:
     f.write("Subhalos that never cross out of Rvir\n")
     for sim,q in zip(list_of_sims('elvis'), naughty_frac):
         f.write(sim + ": " + str(q) + '%\n')
