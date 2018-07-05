@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 import glob
+import astropy.constants
 
 Mpc2kpc = 10**3
-
-G = 1.327*10**11    # km^3 / (solar mass * s^2)
+kpc2km = astropy.constants.kpc.to('km').value
+G = astropy.constants.G.to('km^3/(M_sun s^2)').value
 
 SIM_DIR = '/Volumes/TINY/NOTFERMI/sims/'
 ELVIS_DIR = SIM_DIR+'elvis/'
@@ -52,8 +53,8 @@ def get_halos_at_scale_elvis(sim, a):
     index = np.argmin(np.abs(list_of_scales('elvis', sim) - a))
 
     # get halo properties at that redshift
-    props = ['X', 'Y', 'Z', 'Vx', 'Vy', 'Vz', 'Vmax', 'Mvir', 'Rvir', 'Rs', 'pID', 'ID']
-    keys = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'Vmax', 'Mvir', 'Rvir', 'Rs', 'pID', 'zID']
+    props = ['X','Y','Z','Vx','Vy','Vz','Vmax','Mvir','Rvir','Rs','pID','ID']
+    keys = ['x','y','z','vx','vy','vz','Vmax','Mvir','Rvir','Rs','pID','zID']
     df = {}
     for key,prop in zip(keys,props):
         prop_list = []
@@ -125,8 +126,8 @@ def load_elvis(sim, processed=False):
     df.drop(columns='UpID', inplace=True)
 
     # rename columns
-    cols = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'Vmax', 'Vpeak', 'Mvir', 'Mpeak',
-            'Rvir', 'Rmax', 'apeak', 'Mstar', 'Mstar_b', 'npart', 'hostID', 'upID']
+    cols = ['x','y','z','vx','vy','vz','Vmax','Vpeak','Mvir','Mpeak','Rvir',
+            'Rmax', 'apeak', 'Mstar', 'Mstar_b', 'npart', 'hostID', 'upID']
     mapper = dict(zip(df.columns.values, cols))
     df.rename(mapper=mapper, axis='columns', inplace=True)
     df.index = df.index.astype(int)
@@ -147,12 +148,14 @@ def load_elvis(sim, processed=False):
 
 def load_vl2(scale):
     if scale == 1.0:
-        df = pd.read_table(VL2_DIR+'vltwosubs.txt',sep=' ',header=0,index_col='id')
+        df = pd.read_table(VL2_DIR+'vltwosubs.txt',sep=' ',
+                            header=0,index_col='id')
         df = df.drop(columns=['rVmax[kpc]', 'M<300pc[Msun]', 'M<600pc[Msun]'])
-        map = {'GCdistance[kpc]': 'r', 'peakVmax[km/s]': 'Vpeak', 'Vmax[km/s]': 'Vmax',
-                'Mtidal[Msun]': 'Mvir', 'rtidal[kpc]': 'Rvir',
-                'x_rel[kpc]': 'x', 'y_rel[kpc]': 'y', 'z_rel[kpc]': 'z',
-                'vx_rel[kpc]': 'vx', 'vy_rel[kpc]': 'vy', 'vz_rel[kpc]': 'vz'}
+        map = {'GCdistance[kpc]': 'r', 'peakVmax[km/s]': 'Vpeak',
+                'Vmax[km/s]': 'Vmax', 'Mtidal[Msun]': 'Mvir',
+                'rtidal[kpc]': 'Rvir', 'x_rel[kpc]': 'x', 'y_rel[kpc]': 'y',
+                'z_rel[kpc]': 'z', 'vx_rel[kpc]': 'vx', 'vy_rel[kpc]': 'vy',
+                'vz_rel[kpc]': 'vz'}
         df.rename(columns=map, inplace=True)
         df.sort_values('Mvir', ascending=False, inplace=True)
         return df[(df.r < df.iloc[0].Rvir) & (df.Vmax > 5)]
