@@ -196,8 +196,8 @@ def potentialNFW(subhalos, hosts):
     rho0 = hosts.loc[subhalos['hostID']].rho0.values/(kpc2km**3)
     return -4*np.pi*G*rho0*Rs**3*np.log(1+r/Rs)/r
 
-def potentialNFW_Rocha_approx(subhalos, hosts):
-    R0 = 10**3*kpc2km
+def potentialNFW_R0(subhalos, hosts, R0):
+    R0 *= kpc2km
     Rs = hosts.loc[subhalos.hostID].Rs.values*kpc2km
     rho0 = hosts.loc[subhalos.hostID].rho0.values/(kpc2km**3)
     potNFW = potentialNFW(subhalos, hosts)
