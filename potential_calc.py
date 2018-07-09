@@ -6,14 +6,7 @@ from scipy.interpolate import interp1d
 
 # get radii used by Shea
 # NOTE: first midpoint is equal step from bin 1 as from bin 2 in log
-nbins = 150
-binmin = 0.1
-binmax = 500
-high = np.logspace(np.log10(binmin), np.log10(binmax), nbins)
-low = np.r_[0, high[:-1]]
-r = np.empty_like(high)
-r[1:] = 10**(np.log10(low[1:])+((np.log10(high[1:])-np.log10(low[1:]))/2))
-r[0] = 10**(np.log10(r[1]) - (np.log10(r[2]) - np.log10(r[1])))
+r = radii_shea()
 
 def potential_mltr(sim, subs, halos):
     halo_names = sim.split('&')

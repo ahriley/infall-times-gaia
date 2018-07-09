@@ -202,3 +202,14 @@ def potentialNFW_R0(subhalos, hosts, R0):
     rho0 = hosts.loc[subhalos.hostID].rho0.values/(kpc2km**3)
     potNFW = potentialNFW(subhalos, hosts)
     return potNFW + (4*np.pi*G*rho0*Rs**3*np.log(1+R0/Rs)/R0)
+
+def radii_shea():
+    nbins = 150
+    binmin = 0.1
+    binmax = 500
+    high = np.logspace(np.log10(binmin), np.log10(binmax), nbins)
+    low = np.r_[0, high[:-1]]
+    r = np.empty_like(high)
+    r[1:] = 10**(np.log10(low[1:])+((np.log10(high[1:])-np.log10(low[1:]))/2))
+    r[0] = 10**(np.log10(r[1]) - (np.log10(r[2]) - np.log10(r[1])))
+    return r
