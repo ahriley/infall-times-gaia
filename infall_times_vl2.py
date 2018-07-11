@@ -1,70 +1,81 @@
 import numpy as np
 import pandas as pd
 from utils import *
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+from scipy.optimize import brentq, minimize_scalar
+from scipy.signal import argrelmin
 
 # present day properties
-subs_full = load_vl2(scale=1.0)
-subs, halo = subs_full.drop(subs_full.iloc[0].name), subs_full.iloc[0]
-subs_full.drop(subs_full.iloc[0].name, inplace=True)
-
-# convert coords to spherical
-subs.x, subs.y, subs.z = subs.x*kpc2km, subs.y*kpc2km, subs.z*kpc2km
-subs = compute_spherical_hostcentric_sameunits(df=subs)
-subs.x, subs.y, subs.z = subs.x*km2kpc, subs.y*km2kpc, subs.z*km2kpc
-subs.r = subs.r*km2kpc
+halo, subs = load_vl2(scale=1.0, processed=True)
+halo = halo.iloc[0]
 
 # check that each subhalo is currently within the halo's Rvir
 assert (subs.r < halo.Rvir).all()
 
-newvals = ['a_acc', 'M_acc', 'V_acc', 'a_peri', 'd_peri']
-subs = subs.reindex(columns=subs.columns.tolist() + newvals)
-subs['acc_found'] = False
-subs['peri_found'] = False
-subs['d_peri'] = np.inf
+# read in the evolutionary tracks
+a = np.loadtxt(VL2_DIR+'/tracks/stepToTimeVL2.txt')[:,1][::-1]
+x = np.loadtxt(VL2_DIR+'/tracks/progX.txt')*a*1000*40
+y = np.loadtxt(VL2_DIR+'/tracks/progY.txt')*a*1000*40
+z = np.loadtxt(VL2_DIR+'/tracks/progZ.txt')*a*1000*40
+pos = np.stack((x,y,z), axis=2)
+IDs = np.loadtxt(VL2_DIR+'vltwosubs.txt', skiprows=1)[:,0].astype(int)
+rvir = np.loadtxt(VL2_DIR+'/tracks/progRtidal.txt')
+Mvir = np.loadtxt(VL2_DIR+'/tracks/progMtidal.txt')
+Vmax = np.loadtxt(VL2_DIR+'/tracks/progVmax.txt')
 
-# accretion: lookback time to r >= host's Rvir
-scale_list = list_of_scales('vl2')
-for a in scale_list[scale_list > 0]:
-    # get z=a properties
-    subs_a = load_vl2(scale=a)
-    subs_a, halo_a = subs_a.drop(subs_a.iloc[0].name), subs_a.iloc[0]
+# get positional indices of wanted subhalos
+indices = []
+for ID in subs.index:
+    ii = np.where(IDs == ID)[0][0]
+    indices.append(ii)
+indices = np.array(indices)
 
-    # if accretion condition satisfied, stop updating accretion values
-    subs['acc_found'] = (subs['acc_found']) | (subs_a.r > halo_a.Rvir)
-    print(a, np.sum(subs_a.r > halo_a.Rvir))
-    subs.loc[~subs.acc_found, 'a_acc'] = a
-    subs.loc[~subs.acc_found, 'M_acc'] = subs_a.loc[~subs.acc_found]['Mvir']
-    subs.loc[~subs.acc_found, 'V_acc'] = subs_a.loc[~subs.acc_found]['Vmax']
+# center on host
+halo_index = np.where(IDs == halo.name)[0][0]
+pos -= pos[halo_index]
+r = np.sqrt(pos[:,:,0]**2 + pos[:,:,1]**2 + pos[:,:,2]**2)
+assert (r[:,0][indices] < rvir[halo_index][0]).all()
 
-    if subs['acc_found'].all():
-        subs.drop('acc_found', axis=1, inplace=True)
-        break
+# interpolate Rvir for the halo
+rvir_halo = rvir[halo_index]
+host_rvir = interp1d(a, rvir_halo, kind='cubic')
 
-# pericenter: step forward from accretion until a local minimum in r
-min_scale = np.min(subs.a_acc)
-for a in scale_list[scale_list > min_scale][::-1]:
-    # get z=a properties
-    subs_a = load_vl2(scale=a)
-    subs_a, halo_a = subs_a.drop(subs_a.iloc[0].name), subs_a.iloc[0]
+# find a_acc, a_peri for subhalos of interest
+accs, peris, dperis, Maccs, Vaccs = [], [], [], [], []
+for ii in indices:
+    # a_acc: most recent crossing of Rvir
+    r_a = interp1d(a, r[ii], kind='cubic')
+    low = a[np.argmax(r[ii] - host_rvir(a) > 0)]
+    high = 1.0
+    assert low < high
+    a_acc = brentq(lambda a : r_a(a) - host_rvir(a), low, high)
 
-    # find local minimum after accretion
-    subs['acc'] = a >= subs['a_acc']
-    subs['peri_found'] = (subs['peri_found']) | ((subs_a.r > subs.d_peri) & (subs['acc']))
-    subs.loc[~subs.peri_found&subs.acc, 'a_peri'] = a
-    subs.loc[~subs.peri_found&subs.acc, 'd_peri'] = subs_a.loc[~subs.peri_found&subs.acc]['r']
+    # a_peri: first local minimum after accretion
+    try:
+        argrelmins = argrelmin(r[ii], order=1)[0]
+        relmins = a[argrelmins]
+        argrelmins = argrelmins[relmins > a_acc]
+        relmins = relmins[relmins > a_acc]
+        idx = np.where(a == relmins[-1])[0][0]
+        h = a[idx-2:][0]
+        assert h > a_acc
+    except (IndexError, AssertionError):
+        # if that doesn't work, just use the high=1.0
+        # NOTE: in known cases, this means a_peri is close to a_acc or 1.0
+        h = 1.0
+    a_peri = minimize_scalar(r_a, bounds=(a_acc, h), method='bounded')['x']
 
-    if subs['peri_found'].all() or a==1.0:
-        subs.drop(labels=['acc', 'peri_found'], axis=1, inplace=True)
-        break
+    Mvir_a = interp1d(a, Mvir[ii], kind='cubic')
+    Vmax_a = interp1d(a, Vmax[ii], kind='cubic')
+    accs.append(a_acc)
+    peris.append(a_peri)
+    dperis.append(float(r_a(a_peri)))
+    Maccs.append(float(Mvir_a(a_acc)))
+    Vaccs.append(float(Vmax_a(a_acc)))
 
-# save diagnostics
-q = len(subs[(subs.a_acc == subs.a_peri) & (subs.d_peri > 200) & (subs.a_peri != 1.0)])/len(subs)
-
-subs.to_pickle('derived_props/vl2')
-
-# output diagnostics to file
-with open("infall_times_diagnostics_vl2.txt", "w") as f:
-    f.write('Naughty fraction (a_acc = a_peri AND d_peri > 200 AND a_peri != 1.0)\n')
-    f.write(str(q) + '\n')
-    f.write('\nEarliest accretion (min(a_acc))\n')
-    f.write(str(np.min(subs.a_acc)) + '\n')
+# save the acc/peri values
+df = {'a_peri': peris, 'd_peri': dperis,
+        'a_acc': accs, 'M_acc': Maccs, 'V_acc': Vaccs}
+newdata = pd.DataFrame(df, index=subs.index.values)
+newdata.to_pickle('derived_props/vl2')

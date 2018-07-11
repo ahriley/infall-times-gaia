@@ -75,11 +75,6 @@ def get_halos_at_scale_elvis(sim, a):
 
     df = pd.DataFrame(df, index=IDs)
     df.index.name = 'ID'
-    # use comoving distances for computing pericenter, infall
-    # df.x *= a
-    # df.y *= a
-    # df.z *= a
-    # df.Rvir *= a
     return df
 
 def halo_concentrations(sim):
@@ -146,7 +141,7 @@ def load_elvis(sim, processed=False):
         return halos, subs
     return df
 
-def load_vl2(scale):
+def load_vl2(scale, processed=False):
     if scale == 1.0:
         df = pd.read_table(VL2_DIR+'vltwosubs.txt',sep=' ',
                             header=0,index_col='id')
@@ -157,8 +152,17 @@ def load_vl2(scale):
                 'z_rel[kpc]': 'z', 'vx_rel[kpc]': 'vx', 'vy_rel[kpc]': 'vy',
                 'vz_rel[kpc]': 'vz'}
         df.rename(columns=map, inplace=True)
-        df.sort_values('Mvir', ascending=False, inplace=True)
-        return df[(df.r < df.iloc[0].Rvir) & (df.Vmax > 5)]
+        df = df[(df.r < df.loc[df['Mvir'].idxmax()].Rvir) & (df.Vmax > 5)]
+        if processed:
+            haloIDs = list([df['Mvir'].idxmax()])
+            subs, halos = df.drop(haloIDs), df.loc[haloIDs]
+            subs['hostID'] = halos.iloc[0].name
+            subs = subs[np.isin(subs.hostID, halos.index)]
+            subs = compute_spherical_hostcentric_sameunits(df=subs)
+            subs = pd.concat((subs, pd.read_pickle('derived_props/vl2')),
+                                sort=False, axis=1)
+            return halos,subs
+        return df
 
     sim_dir = VL2_DIR+'tracks/'
     index = np.argmin(np.abs(list_of_scales('vl2') - scale))
