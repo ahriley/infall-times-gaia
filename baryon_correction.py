@@ -8,7 +8,10 @@ from utils import *
 with open('data/nadler2018_rf.sav', 'rb') as f:
     nadler_rf = pickle.load(f)
 
-for sim in list_of_sims('elvis'):
+simlist = list_of_sims('elvis')
+simlist.append('vl2')
+
+for sim in simlist:
     subs = pd.read_pickle('derived_props/'+sim)
     assert (subs.a_peri >= subs.a_acc).all()
 
