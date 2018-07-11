@@ -13,26 +13,26 @@ for sim in simlist_full:
     if sim[0] == 'i' and 'HiRes' not in sim:
         simlist.append(sim)
 
-# order by virial mass
+# order by desired quantity
 sortprop = []
 for sim in simlist:
-    # sortprop.append(np.sum(load_elvis(sim).iloc[0:1].M_dm))
-    sortprop.append(halo_concentrations(sim)[0])
+    sortprop.append(np.sum(load_elvis(sim).iloc[0].Mvir))
+    # sortprop.append(halo_concentrations(sim)[0])
     # sortprop.append(np.sum(load_elvis(sim).iloc[0:1].apeak))
 sortprop, simlist = zip(*sorted(zip(sortprop, simlist)))
 
 # get maximum radius of subhalos
 r = np.array([])
 for sim in list_of_sims('elvis'):
-    subs = pd.read_pickle('derived_props/'+sim)
+    host, subs = load_elvis(sim=sim, processed=True)
     r = np.append(r, subs.r)
 max_r = np.max(r)
 
 # set up constant properties of figure
 fig = plt.figure()
-ax = plt.axes(xlim=(0.,12.75), ylim=(3.4,5.2))
+ax = plt.axes(xlim=(0.,12.75), ylim=(2.5,5.2))
 plt.yticks([3.5,4.0,4.5,5.0])
-scat = plt.scatter([], [], s=2.0, c=[], cmap='plasma', vmin=0.0, vmax=max_r)
+scat = plt.scatter([], [], s=10.0, c=[], cmap='plasma', vmin=0.0, vmax=max_r)
 line, = plt.plot([], [], c='r')
 plt.title("Isolated Halos")
 plt.colorbar().set_label(r'Galactocentric Radius [$kpc$]')
@@ -44,8 +44,9 @@ plt.tight_layout()
 
 def update_plot(i):
     sim = simlist[i]
-    subs = pd.read_pickle('derived_props/'+sim)
-    bind = -subs.pot_NFW2.values - 0.5*(subs.v_r.values**2 + subs.v_t.values**2)
+    host, subs = load_elvis(sim=sim, processed=True)
+    # subs = subs[subs.nadler2018 > 0.5]
+    bind = -subs.pot_mltr.values - 0.5*(subs.v_r.values**2 + subs.v_t.values**2)
     z = WMAP7.lookback_time(1/subs.a_acc.values - 1)[bind>0].value
     r = subs.r[bind>0]
     bind = bind[bind>0]
@@ -63,9 +64,9 @@ def update_plot(i):
     scat.set_array(r)               # colors
     line.set_data(z[bindcut], intercept + slope*z[bindcut])
     sim_text.set_text(sim)
-    sortprop_text.set_text("c = "'%.2f' % sortprop[i])
+    sortprop_text.set_text("Mvir = "'%.2E' % sortprop[i])
     return scat,sim_text,sortprop_text,line
 
 anim = FuncAnimation(fig, update_plot, frames=len(simlist), blit=True, interval=600)
-anim.save('animations/isolated_concentration_slope.mp4')
+anim.save('animations/isolated_mltr.mp4')
 # plt.show()
